@@ -6,7 +6,6 @@ Tool to decrypt and encrypt DRAGON BALL XENOVERSE 2 saves from the PS4 (mounted 
 usage: why.py [-h] [-e] input_file output_file
 
 Tool to decrypt and encrypt DRAGON BALL XENOVERSE 2 saves from the PS4 (mounted save)
-https://github.com/Zhaxxy/xenoverse2_ps4_decrypt/tree/main
 positional arguments:
   input_file    XENOVERSE 2 save (eg SDATA000.DAT) to decrypt/encrypt
   output_file   Output file path of encrypted/decrypted save (eg SDATA000.DAT.dec)
