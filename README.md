@@ -1,7 +1,12 @@
 # xenoverse2_ps4_decrypt
 Tool to decrypt and encrypt DRAGON BALL XENOVERSE 2 saves from the PS4 (mounted save)
 
-## usage
+# Requriements
+pycryptodome needs to be installed using the following command
+```
+pip install pycryptodome
+```
+## Usage
 ```
 usage: why.py [-h] [-e] input_file output_file
 
