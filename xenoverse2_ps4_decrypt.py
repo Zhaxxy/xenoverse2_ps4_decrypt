@@ -12,6 +12,7 @@ from Crypto.Cipher import AES
 XENOVERSE_2_PS4_SAVE_HEADER_KEY = b'PR]-<Q9*WxHsV8rcW!JuH7k_ug:T5ApX'
 XENOVERSE_2_PS4_SAVE_HEADER_INITIAL_VALUE = b'_Y7]mD1ziyH#Ar=0'
 XENOVERSE_2_PS4_SAVE_MAGIC_HEADER = b'H\x89\x01L'
+INTERNAL_KEY_OFFSETS = (0x1c,0x4c)
 
 class Xenoverse2Ps4Error(Exception):
     """
@@ -33,26 +34,46 @@ def decrypt_xenoverse2_ps4(enc_save: BytesIO,dec_save_output: BytesIO,*,check_ha
     
     
     dec_header = AES.new(XENOVERSE_2_PS4_SAVE_HEADER_KEY,AES.MODE_CTR,initial_value=XENOVERSE_2_PS4_SAVE_HEADER_INITIAL_VALUE,nonce=b'').decrypt(enc_save.read(0x80))
+    enc_data_test = enc_save.read(16)
+    for key_offset in INTERNAL_KEY_OFFSETS:
+        key = dec_header[key_offset:key_offset + 0x20]
+        initial_value = dec_header[key_offset + 0x20:key_offset + (0x20 + 0x10)]
+        new_key = AES.new(key,AES.MODE_CTR,initial_value=initial_value,nonce=b'')
+        test_data = new_key.decrypt(enc_data_test)
+        if test_data.startswith(b'#SAV'):
+            break
+    else: # no break
+        raise Xenoverse2Ps4Error('Could not find internal save encryption key')
     
-    key = dec_header[0x1c:0x3c]
-    initial_value = dec_header[0x3c:0x4c]
+    enc_save.seek(0x20 + 0x80)
     new_key = AES.new(key,AES.MODE_CTR,initial_value=initial_value,nonce=b'')
-    decrypted_save = new_key.decrypt(enc_save.read())
+    decrypted_save = bytearray(new_key.decrypt(enc_save.read()))
+    
+    decrypted_save[-1] = key_offset
     
     dec_save_output.write(dec_header)
     dec_save_output.write(decrypted_save)
-
+    
 
 def encrypt_xenoverse2_ps4(dec_save: BytesIO, enc_save_output: BytesIO):
-    dec_save.seek(0x1c)
+    dec_save.seek(-1,2)
+    dec_save_file_size_minus_one = dec_save.tell() - 0x80
+    
+    key_offset = dec_save.read(1)[0] # index 0 as convient way to convert byte to int
+    if key_offset not in INTERNAL_KEY_OFFSETS:
+        raise Xenoverse2Ps4Error('Could not find my sneaky key offset, did you decrypt this using another tool?')
+    dec_save.seek(key_offset)
+
     key = dec_save.read(0x20)
     initial_value = dec_save.read(0x10)
     new_key = AES.new(key,AES.MODE_CTR,initial_value=initial_value,nonce=b'')
     dec_save.seek(0)
     
     enc_header = AES.new(XENOVERSE_2_PS4_SAVE_HEADER_KEY,AES.MODE_CTR,initial_value=XENOVERSE_2_PS4_SAVE_HEADER_INITIAL_VALUE,nonce=b'').decrypt(dec_save.read(0x80))
-    enc_save = new_key.encrypt(dec_save.read())
+    enc_save = new_key.encrypt(dec_save.read(dec_save_file_size_minus_one) + b'\x00')
 
+    
+    
     md5_hash = hashlib.md5()
     md5_hash.update(enc_header)
     md5_hash.update(enc_save)
